@@ -8,17 +8,29 @@ As part of the Farm animal Genotype-Tissue Expression (FarmGTEx) project, we des
 2. Analysis pipeline
 
 This repository contains analysis pipelines used by the CattleCA Consortium, including:
+
 Raw sequencing data processing, quality control and cell clustering
+
 Cell cycle analysis
+
 Cell communication analysis
+
 Gene regulatory network analysis
+
 Pseudo time trajectory analysis
+
 Cell type preference analysis
+
 Sex bias analysis
+
 High-dimensional weighted gene co-expression network analysis
+
 Gene function enrichment analysis
+
 Enrichment analysis between cell types and monogenic disorders
+
 Enrichment analysis between cell types and complex traits
+
 Linkage disequilibrium score regression analysis
 
 3. Citation
