@@ -1,40 +1,11 @@
 library(dplyr)
 library(Seurat)
 library(patchwork)
-
-##extract all celltypes in each tissue
 library(readxl)
-celltype <- read_excel("~/dat/Cell_annotation.xlsx",sheet=3)
-celltype <- data.frame(celltype)
-str <- "~/dat/cattle_scdata/Global atlas/All_rds/"
-setwd("~/dat/cattle_scdata/Global atlas/All_rds")
-list0 <- list.files(pattern = ".rds")
-list0 <- sapply(list0, function(x) unlist(strsplit(x, "\\."))[1])
-list0 <- data.frame(list0)
-tissue <- list0$list0
-list1<-NULL
-for(i in tissue){
-  list1[[i]]<-paste0("~/dat/cattle_scdata/Global atlas/All_rds/", i, ".rds")
-}
-list2<-NULL
-for(i in tissue){
-  list2[[i]]<-paste0("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/", i, "_anno.rds")
-}
-
-for(i in 1:length(tissue)) {
-   sc <- readRDS(list1[[i]])
-   tissue_cell <- celltype[celltype$Tissue == tissue[[i]],]
-   cell_type <- tissue_cell$Cell.type
-   Idents(sc) <- "seurat_clusters"
-   table(Idents(sc))
-   names(cell_type) <- levels(sc)
-   sc <- RenameIdents(sc, cell_type)
-   sc@meta.data$CellType <- Idents(sc)
-   saveRDS(sc, file = list2[[i]])
-}
-
-#transfer count to CPM
 library(edgeR)
+
+##Expression profile within each cell type
+#Separate cell types in each tissue and transfer count to CPM
 str <- "~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/"
 setwd("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds")
 list0 <- list.files(pattern = ".rds")
@@ -52,9 +23,6 @@ for (i in 1:length(list0)) {
     for(j in 1:length(celltype)) {
         sc1 <- subset(x=sc, idents = celltype[[j]]) 
         dat <- data.frame(sc1@assays$RNA@counts)
-        zero_count <- apply(dat, 1, function(row) sum(row == 0))
-        zero_percentage <- zero_count / ncol(dat)
-        dat <- dat[zero_percentage <= 0.5, ]
         cpm <- edgeR::cpm(dat)
         mean_cpm <- rowMeans(cpm)
         write.csv(mean_cpm, file = paste0(str, list0[[i]], "_", celltype[[j]], ".csv"))
@@ -82,7 +50,7 @@ for (i in 1:length(list0)) {
     write.csv(merged_data, file = paste0("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/", list0[[i]], ".csv"), row.names = FALSE)
 }
 
-#calculate the mean cpm and combine different celltype together   
+#calculate the mean cpm and combine all celltype together   
 str <- "~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/"  
 setwd("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/")
 file <- list.files(pattern = ".csv")
@@ -135,8 +103,8 @@ tiff(filename = '~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellTyp
 pheatmap(dat_scale, cluster_rows = TRUE, cluster_cols = TRUE, annotation_col = group, color = colorRampPalette(colors = c("blue", "white","red"))(100), show_rownames = FALSE, show_colnames = FALSE)
 dev.off()
 
-##calculate the correlation between cell type groups and disorder groups
-#extract high average zscore genes from each cell type group
+##calculate the correlation between cell lineages and disorder domains
+#extract high average zscore genes from each cell type group (zscore > 0.75)
 library(readxl)
 cpm <- read.csv("~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/combine_all_genes_celltype_cpm_mean.csv")
 rownames(cpm) <- cpm$gene
