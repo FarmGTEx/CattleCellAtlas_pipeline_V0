@@ -5,7 +5,7 @@ library(dplyr)
 library(reshape2)
 library(tidyr)
 
-files <- list.files("~/pyscenic/sex_no1day_tf",pattern="\\.csv$", full.names= TRUE)
+files <- list.files("~/dat/pyscenic/sex_no1day_tf",pattern="\\.csv$", full.names= TRUE)
 files <- files[-c(17, 18, 21)]
 ars_df <- data.frame()
 all_res <- data.frame()
