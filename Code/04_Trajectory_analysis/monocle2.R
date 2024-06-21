@@ -17,7 +17,7 @@ cores=30
 
 #### 1. Load Data
 cell='Spinous cells'
-setwd("/work/home/sdxgroup01/01user/zwj/scRNA/Epithelial/07remun/Spinous")
+setwd("~/dat/Epithelial/07remun/Spinous")
 data <- readRDS('celltype.rds')
 
 
