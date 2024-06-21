@@ -10,7 +10,7 @@ library(stringr)
 library(ComplexHeatmap)
 
 #### 1. Load Data
-setwd("/work/home/sdxgroup01/01user/zwj/scRNA/Immune/03heatmap")
+setwd("~/dat/Immune/03heatmap")
 sce <- readRDS("celltype.rds")
 
 #### 2. Create Dataset
