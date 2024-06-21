@@ -1,4 +1,4 @@
-** Analysis pipelines for the pilot phase (V0) of Cattle Cell Atlas (CattleCA) 🐄: **
+** Analysis pipelines for the pilot phase (V0) of Cattle Cell Atlas (CattleCA) 🐄 **
 
 **1. Introduction**
 
