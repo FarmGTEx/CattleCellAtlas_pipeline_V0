@@ -23,7 +23,7 @@ enableWGCNAThreads(nThreads = 10)
 #### ==================================================================
 #### 1. Load Data
 #### ==================================================================
-setwd("/work/home/sdxgroup01/01user/zwj/scRNA/Epithelial/07remun/Spinous")
+setwd("~/dat/Epithelial/07remun/Spinous")
 data <- readRDS("celltype.rds")
 Idents(data) <- "seurat_clusters"
 cell <- "spinous"
