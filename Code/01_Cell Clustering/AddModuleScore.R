@@ -15,7 +15,7 @@ library(ggpubr)
 
 
 #### 1. Load Data
-setwd("/public/home/2018013/02users/zwj/03doctor/1_scRNA/immune/06macro_merge")
+setwd("~/dat/immune/06macro_merge")
 sce <- readRDS("celltype.rds")
 #### M1/M2
 M1 <- c("SOCS1", "NOS2", "TNF", "CXCL9", "CXCL10", "CXCL11", "CD86", "IL1A", "IL1B", "IL6", "CCL5", "IRF5", "IRF1", "CCR7")
