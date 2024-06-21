@@ -1,0 +1,305 @@
+library(dplyr)
+library(Seurat)
+library(patchwork)
+library(readxl)
+library(edgeR)
+
+##Expression profile within each cell type
+#Separate cell types in each tissue and transfer count to CPM
+str <- "~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/"
+setwd("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds")
+list0 <- list.files(pattern = ".rds")
+list0 <- sapply(list0, function(x) unlist(strsplit(x, "\\."))[1])
+list0 <- data.frame(list0)
+list0 <- list0$list0
+list1<-NULL
+for(i in list0){
+  list1[[i]]<-paste0("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/", i, ".rds")
+}
+for (i in 1:length(list0)) { 
+    sc <- readRDS(list1[[i]])
+    Idents(sc) <- "CellType"
+    celltype <- unique(sc$CellType)
+    for(j in 1:length(celltype)) {
+        sc1 <- subset(x=sc, idents = celltype[[j]]) 
+        dat <- data.frame(sc1@assays$RNA@counts)
+        cpm <- edgeR::cpm(dat)
+        mean_cpm <- rowMeans(cpm)
+        write.csv(mean_cpm, file = paste0(str, list0[[i]], "_", celltype[[j]], ".csv"))
+    }
+}
+
+#combine the same celltype from different tissues
+library(readxl)
+all_celltype <- read_excel("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CellType_group.xlsx", sheet = 1)
+all_celltype <- data.frame(all_celltype)
+list0 <- all_celltype$Celltype
+list1 <- paste0("anno_",list0)
+for (i in 1:length(list0)) { 
+    file_list <- list.files(path = "~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/", pattern = list1[[i]], full.names = TRUE)   
+    merged_data <- data.frame()
+    for (file in file_list) {
+        data <- read.csv(file)
+        if (nrow(merged_data) == 0) {
+           merged_data <- data
+           } else {
+           merged_data <- merge(merged_data, data, by = "X", all = TRUE)
+        }
+    }
+    merged_data[is.na(merged_data)]=0
+    write.csv(merged_data, file = paste0("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/", list0[[i]], ".csv"), row.names = FALSE)
+}
+
+#calculate the mean cpm and combine all celltype together   
+str <- "~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/"  
+setwd("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/")
+file <- list.files(pattern = ".csv")
+list0 <- sapply(file, function(x) unlist(strsplit(x, "\\."))[1])
+list0 <- data.frame(list0)
+list0 <- list0$list0
+list1 <- list.files(pattern = ".csv")
+
+merged_data <- read.csv(list1[[1]])
+colnames(merged_data)[2] <- list0[[1]]
+colnames(merged_data)[1] <- "gene"
+for (i in 2:length(list0)) { 
+    dat <- read.csv(list1[[i]])
+    if (ncol(dat) >2) {
+       rownames(dat) <- dat$X
+       dat <- dat[,-1]
+       dat <- rowMeans(dat) 
+       dat <- data.frame(dat)
+       colnames(dat) <- list0[[i]]
+       dat$gene <- rownames(dat)
+       } else {
+       colnames(dat)[2] <- list0[[i]]
+       colnames(dat)[1] <- "gene"
+    }
+    merged_data <- merge(merged_data, dat, by = "gene", all = TRUE)
+}
+merged_data[is.na(merged_data)]=0
+rownames(merged_data) <- merged_data$gene
+merged_data <- merged_data[,-1]
+write.csv(merged_data, file = "~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/combine_all_genes_celltype_cpm_mean.csv")
+
+##tau test
+library(readxl)
+cpm <- read.csv("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/combine_all_genes_celltype_cpm_mean.csv")
+rownames(cpm) <- cpm$gene
+cpm <- cpm[,-1:-2]
+group <- read_excel("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CellType_group.xlsx",sheet = 1)
+group <- data.frame(group)
+rownames <- group$Celltype
+group <- group[,-1]
+group <- data.frame(group)
+rownames(group) <- rownames
+tau <- read.csv("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/tau_specificity.csv")
+tau_select <- tau[tau$X0>0.85,]
+rownames(tau_select) <- tau_select$gene
+cpm_select <- cpm[rownames(cpm) %in% rownames(tau_select),]    
+dat=log2(cpm_select+1)    
+dat_scale=t(scale(t(dat)))
+tiff(filename = '~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/tau.tiff',width =3000,height=3000,res=300)
+pheatmap(dat_scale, cluster_rows = TRUE, cluster_cols = TRUE, annotation_col = group, color = colorRampPalette(colors = c("blue", "white","red"))(100), show_rownames = FALSE, show_colnames = FALSE)
+dev.off()
+
+##calculate the correlation between cell lineages and disorder domains
+#extract high average zscore genes from each cell type group (zscore > 0.75)
+library(readxl)
+cpm <- read.csv("~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/combine_all_genes_celltype_cpm_mean.csv")
+rownames(cpm) <- cpm$gene
+cpm <- cpm[,-1:-2]
+zscore <- read.csv("~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/output/zscore_specificity.csv")
+rownames(zscore) <- zscore$gene
+zscore <- zscore[,-1]
+disorder <- read.csv("~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/omia_genes.csv")
+disease <- unique(disorder$Disease_Group) 
+group <- read_excel("~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CellType_group.xlsx", sheet = 1)
+group <- data.frame(group)
+list0 <- unique(group$Group)
+for (i in 1:length(list0)){
+    celltype <- group[group$Group == list0[[i]],]
+    celltype <- celltype$Celltype
+    merged_zscore <- data.frame()
+    for(j in 1:length(celltype)){  
+        a = which(names(zscore)==celltype[[j]])
+        select_zscore <- zscore[zscore[,a] >0.75, ] 
+        if (nrow(merged_zscore) == 0) {
+           merged_zscore <- select_zscore
+           } else {
+           merged_zscore <- rbind(merged_zscore, select_zscore)
+        } 
+    } 
+    write.csv(merged_zscore, file = paste0("~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/all_genes/output/select_zscore/", list0[[i]], ".csv"))
+} 
+
+#fisher test between cell type group and disorder groups
+str1 <- "~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/all_genes/output/select_zscore/"
+setwd("~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/all_genes/output/select_zscore")
+file <- list.files(pattern = ".csv")
+list0 <- sapply(file, function(x) unlist(strsplit(x, "\\."))[1])
+list0 <- data.frame(list0)
+list0 <- list0$list0    
+list1<-NULL
+for(i in list0){
+  list1[[i]]<-paste0(str1, i, ".csv")
+}    
+p_value <- array(data = NA,dim = c(7,10))
+for(i in 1:length(list1)) {
+    zscore <- read.csv(list1[[i]])
+    zscore <- na.omit(zscore)
+    rownames(zscore) <- zscore$X
+    zscore <- zscore[,-1]
+    zscore_genes <- rownames(zscore)
+    for(j in 1:length(disease)) {
+        selet_disorder <- disorder[disorder$Disease_Group == disease[j],]
+        disorder_genes <- selet_disorder$Gene
+        same_genes <- intersect(zscore_genes,disorder_genes)
+        a = length(same_genes)
+        b = length(disorder_genes)
+        c = length(zscore_genes)
+        d = 23945
+        if (((b*c)/d) >= 5) {
+            chisq_result <- chisq.test(matrix(c(a,b-a,c-a,d-b-c+a),nrow=2)) 
+            p <- chisq_result$p.value
+            } else if (((b*c)/d) >= 1) {
+                chisq_result <- chisq.test(matrix(c(a,b-a,c-a,d-b-c+a),nrow=2), correct=TRUE)
+                p <- chisq_result$p.value
+                } else {
+                  fisher_result <- chisq.test(matrix(c(a,b-a,c-a,d-b-c+a),nrow=2))
+                  p <- fisher_result$p.value
+                  }
+            p_value[i,j] <- p
+        }
+}
+colnames(p_value) <- disease 
+rownames(p_value) <- list0
+
+#OR
+OR_value <- array(data = NA,dim = c(7,10))
+for(i in 1:length(list1)) {
+    zscore <- read.csv(list1[[i]])
+    zscore <- na.omit(zscore)
+    rownames(zscore) <- zscore$X
+    zscore <- zscore[,-1]
+    zscore_genes <- rownames(zscore)
+    for(j in 1:length(disease)) {
+        selet_disorder <- disorder[disorder$Disease_Group == disease[j],]
+        disorder_genes <- selet_disorder$Gene
+        same_genes <- intersect(zscore_genes,disorder_genes)
+        a = length(same_genes)
+        b = length(disorder_genes)
+        c = length(zscore_genes)
+        d = 23945 
+        OR <- (a/(b-a))/((c-a)/(d-b-c+a))
+        OR_value[i,j] <- OR
+        }
+}
+colnames(OR_value) <- disease 
+rownames(OR_value) <- list0
+
+##FDR correction
+list0 <- colnames(p_value) 
+merged_FDR <- data.frame()   
+for(i in 1:10) {  
+    FDR <- p.adjust(p_value[,i], method ="BH")  
+    FDR <- data.frame(FDR)
+    colnames(FDR) <- list0[[i]]
+    if (ncol(merged_FDR) == 0) {
+           merged_FDR <- FDR
+           } else {
+           merged_FDR <- cbind(merged_FDR, FDR)
+        }
+}
+
+library(reshape2)
+OR_value <- data.frame(OR_value)
+OR_value <- cbind(RowNames = rownames(OR_value), OR_value)
+plot <- melt(OR_value, id.vars="RowNames")
+names(plot) <- c("CellType", "Disorder", "OR")
+
+write.csv(p_value, file = "~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/output/p_value.csv")
+write.csv(merged_FDR, file = "~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/output/FDR.csv")
+write.csv(OR_value, file = "~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/output/OR.csv")
+write.csv(plot, file = "~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/output/plot.csv")
+
+#plot
+library(ggplot2)
+dat <- read.csv("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/output/plot.csv")
+dat$Significance <- factor(dat$Significance)
+dat$log2OR <- log2(dat$OR + 1)
+tiff(filename = '~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/output/cellgroup_disorder.tiff',width =3000,height=2000,res=300)
+ggplot() + 
+geom_point(data = dat,aes(x = Disorder, y = CellType, color=log2OR, size=Significance)) +
+theme_classic() +
+ylab("Cell type groups")+
+xlab("Disorder groups")+
+theme(axis.title=element_text(size = 18,face="bold",colour = "black"),
+      axis.text.x = element_text(angle=45, hjust=1, vjust=1),
+      axis.text=element_text(size = 15,face="bold",colour = "black"),  
+      legend.title = element_text(face="bold",size=14),
+      legend.text = element_text(face="bold",size=12))+
+      scale_size_discrete(name = "Significance", breaks = c("0", "1", "2"), labels = c("NS/NA","Nominal significance","Bonferroni corrected")) +
+      #scale_color_gradientn(values = seq(0,1,0.2),colours = c('#330066','#336699','#66CC66','#FFCC33')) +
+      scale_color_gradientn(values = seq(0,1,0.2),colours = c('gray','red'))
+      #theme(text = element_text("serif"))
+dev.off()
+
+#select celltype and recalculate zscore
+library(readxl)
+cpm <- read.csv("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/combine_all_genes_celltype_cpm_mean.csv")
+rownames(cpm) <- cpm$gene
+cpm <- cpm[,-1:-2]
+group <- read_excel("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CellType_group.xlsx", sheet = 1)
+group <- data.frame(group)
+celltype_group <- unique(group$Group)
+select_celltype <- group[group$Group == celltype_group[[4]],]
+select_celltype <- select_celltype$Celltype
+select_cpm <- cpm[, colnames(cpm) %in% select_celltype]
+write.csv(select_cpm, "~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/output/select_celltype/Immune_zscore.csv")
+#Then re-calculate the zcsore
+
+##extract given cell type and disease
+library(readxl)
+library(reshape2)
+cpm <- read.csv("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/combine_all_genes_celltype_cpm_mean.csv")
+rownames(cpm) <- cpm$gene
+cpm <- cpm[,-1:-2]
+group <- read_excel("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/CellType_group.xlsx", sheet = 1)
+group <- data.frame(group)
+celltype_group <- unique(group$Group)
+disorder <- read.csv("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/omia_genes.csv")
+disease <- unique(disorder$Disease_Group) 
+select_celltype <- group[group$Group == celltype_group[[4]],]
+select_celltype <- select_celltype$Celltype
+selet_disorder <- disorder[disorder$Disease_Group == disease[3],]
+disorder_genes <- selet_disorder$Gene
+select_cpm <- cpm[rownames(cpm) %in% disorder_genes, colnames(cpm) %in% select_celltype]
+zscore <- read.csv("~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/output/select_celltype/output/Epithelial_zscore_specificity.csv")
+rownames(zscore) <- zscore$X
+zscore <- zscore[,-1]
+select_zscore <- zscore[rownames(zscore) %in% disorder_genes, colnames(zscore) %in% select_celltype]
+log_cpm <- log10(select_cpm+1)
+log_cpm <- cbind(RowNames = rownames(log_cpm), log_cpm)
+log_cpm <- melt(log_cpm, id.vars="RowNames")
+names(log_cpm) <- c("genes", "CellType", "LogCPM")
+select_zscore <- cbind(RowNames = rownames(select_zscore), select_zscore)
+select_zscore <- melt(select_zscore, id.vars="RowNames")
+names(select_zscore) <- c("genes", "CellType", "zscore")
+log_cpm$zscore <- select_zscore$zscore
+write.csv(log_cpm, file = "~/dat/cattle_scdata/Global atlas/All_rds/annotation_rds/CellType/CPM/Select_CT/Immune_cpm_zscore.csv")
+library(ggplot2)
+tiff(filename = '~/dat/cattle_scdata/Global_atlas/All_rds/annotation_rds/CellType/CPM/output/select_celltype/output/Epithelial.tiff',width =4000,height=2500,res=300)
+ggplot() + 
+geom_point(data = log_cpm,aes(x = CellType, y = genes, color=zscore, size=LogCPM)) +
+theme_classic() +
+ylab("Skin disorder genes")+
+xlab("Epithelial cell")+
+theme(axis.title=element_text(size = 18,face="bold",colour = "black"),
+      axis.text.x = element_text(angle=45, hjust=1, vjust=1),
+      axis.text=element_text(size = 15,face="bold",colour = "black"),  
+      legend.title = element_text(face="bold",size=14),
+      legend.text = element_text(face="bold",size=12))+
+      scale_color_gradientn(values = seq(0,1,0.2),colours = c('#330066','#336699','#66CC66','#FFCC33'))
+#theme(text = element_text("serif"))
+dev.off()
