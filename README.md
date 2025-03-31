@@ -21,7 +21,11 @@ As part of the Farm animal Genotype-Tissue Expression (FarmGTEx) project, we des
 
 :black_circle:Cell type preference analysis
 
-:black_circle:Sex bias analysis
+:black_circle:Cell type diversity analysis
+
+:black_circle:Cell type conservation analysis
+
+:black_circle:Cell function scoring
 
 :black_circle:High-dimensional weighted gene co-expression network analysis
 
@@ -29,7 +33,11 @@ As part of the Farm animal Genotype-Tissue Expression (FarmGTEx) project, we des
 
 :black_circle:Enrichment analysis between cell types and monogenic disorders
 
+:black_circle:Genome-wide association study (GWAS) analysis
+
 :black_circle:Enrichment analysis between cell types and complex traits
+
+:black_circle:Cross species cellular transcriptome similarity analysis
 
 :black_circle:Linkage disequilibrium score regression analysis
 
